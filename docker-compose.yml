@@ -1,0 +1,23 @@
+services:
+  n8n:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - N8N_VERSION=${N8N_VERSION:-1.110.1}
+    container_name: n8n-custom
+    ports:
+      - "${N8N_PORT:-5677}:5678"
+    environment:
+      - N8N_HOST=127.0.0.1
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - TZ=UTC
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
+    driver: local
