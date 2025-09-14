@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         - N8N_VERSION=${N8N_VERSION:-1.110.1}
+    image: banzom/n8n-custom:${N8N_VERSION:-1.110.1}
     container_name: n8n-custom
     ports:
       - "${N8N_PORT:-5677}:5678"
@@ -17,7 +18,13 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
     restart: unless-stopped
+    secrets:
+      - cloudflared_token
 
 volumes:
   n8n_data:
     driver: local
+
+secrets:
+  cloudflared_token:
+    file: ./cloudflared_token.txt
