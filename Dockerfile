@@ -1,35 +1,45 @@
-FROM node:20-alpine
+ARG NODE_VERSION=22.21.1
+ARG N8N_VERSION=snapshot
+
+# ==============================================================================
+# STAGE 1: System Dependencies & Base Setup
+# ==============================================================================
+FROM n8nio/base:${NODE_VERSION} AS system-deps
+
+# ==============================================================================
+# STAGE 2: Final Runtime Image
+# ==============================================================================
+FROM system-deps AS runtime
 
 ARG N8N_VERSION
+ARG N8N_RELEASE_TYPE=dev
+ENV NODE_ENV=production
+ENV N8N_RELEASE_TYPE=${N8N_RELEASE_TYPE}
+ENV NODE_ICU_DATA=/usr/local/lib/node_modules/full-icu
+ENV SHELL=/bin/sh
 
-RUN if [ -z "$N8N_VERSION" ] ; then echo "The N8N_VERSION argument is missing!" ; exit 1; fi
+WORKDIR /home/node
 
-# Update everything and install needed dependencies
-RUN apk add --update graphicsmagick tzdata
+COPY ./compiled /usr/local/lib/node_modules/n8n
+COPY docker-entrypoint.sh /
 
-USER root
+# This version of npm has the fix for glob
+RUN npm install -g npm@11.6.4
 
-# Install n8n and the also temporary all the packages
-# it needs to build it correctly.
-RUN apk --update add --virtual build-dependencies python3 build-base ca-certificates && \
-    npm_config_user=root npm install -g n8n@${N8N_VERSION} && \
-    apk del build-dependencies
+RUN cd /usr/local/lib/node_modules/n8n && \
+		npm rebuild sqlite3 && \
+		ln -s /usr/local/lib/node_modules/n8n/bin/n8n /usr/local/bin/n8n && \
+    mkdir -p /home/node/.n8n && \
+    chown -R node:node /home/node
 
-# Tunneling support with cloudflared
-RUN apk add --no-cache curl tar
-RUN curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o /usr/local/bin/cloudflared
-RUN chmod +x /usr/local/bin/cloudflared
+RUN cd /usr/local/lib/node_modules/n8n/node_modules/pdfjs-dist && npm install @napi-rs/canvas
 
-# Copy the startup script into the image
-COPY start.sh /usr/local/bin/start.sh
-RUN chmod +x /usr/local/bin/start.sh
+EXPOSE 5678/tcp
+USER node
+ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
 
-# Setting a custom user to not have n8n run as root    
-RUN addgroup -S n8n && adduser -S n8n -G n8n
-RUN mkdir -p /data && chown -R n8n:n8n /data
-USER n8n
-
-WORKDIR /data
-
-# The main command to run our startup script
-CMD ["/usr/local/bin/start.sh"]
+LABEL org.opencontainers.image.title="n8n-custom" \
+      org.opencontainers.image.description="Workflow Automation Tool" \
+      org.opencontainers.image.source="https://github.com/banzom-fc/n8n-custom-image" \
+      org.opencontainers.image.url="https://n8n.io" \
+      org.opencontainers.image.version=${N8N_VERSION}

@@ -4,27 +4,45 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - N8N_VERSION=${N8N_VERSION:-1.110.1}
-    image: banzom/n8n-custom:${N8N_VERSION:-1.110.1}
-    container_name: n8n-custom
+        - N8N_VERSION=${N8N_VERSION}
+    image: ${DOCKER_IMAGE}:${N8N_VERSION}
+    container_name: ${CONTAINER_NAME}
     ports:
-      - "${N8N_PORT:-5677}:5678"
+      - "${N8N_PORT}:5678"
     environment:
-      - N8N_HOST=127.0.0.1
+      - N8N_HOST=${N8N_HOST}
       - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - NODE_ENV=production
-      - TZ=UTC
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
+      - NODE_ENV=${NODE_ENV}
+      - TZ=${TZ}
     volumes:
       - n8n_data:/home/node/.n8n
-    restart: unless-stopped
+    restart: ${RESTART_POLICY}
+    networks:
+      - n8n_network
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE}
+    container_name: ${CLOUDFLARED_CONTAINER_NAME}
+    command: sh -c 'cloudflared tunnel --no-autoupdate run --token $$(cat /run/secrets/cloudflared_token | tr -d "\n\r"))'
+    restart: ${RESTART_POLICY}
+    networks:
+      - n8n_network
+    depends_on:
+      - n8n
     secrets:
       - cloudflared_token
+    profiles:
+      - tunnel
 
 volumes:
   n8n_data:
     driver: local
 
+networks:
+  n8n_network:
+    driver: bridge
+
 secrets:
   cloudflared_token:
-    file: ./cloudflared_token.txt
+    file: ${CLOUDFLARED_TOKEN_FILE}
