@@ -101,6 +101,9 @@ docker compose up -d
 # Start (with tunnel)
 docker compose up -d  # if COMPOSE_PROFILES=tunnel in .env
 
+# Start (with tunnel, explicit)
+docker compose --profile tunnel up -d
+
 # Stop
 docker compose down
 
