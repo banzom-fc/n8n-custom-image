@@ -1,11 +1,6 @@
 services:
   n8n:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - N8N_VERSION=${N8N_VERSION}
-    image: ${DOCKER_IMAGE}:${N8N_VERSION}
+    image: ${DOCKER_IMAGE}
     container_name: ${CONTAINER_NAME}
     ports:
       - "${N8N_PORT}:5678"
@@ -24,14 +19,14 @@ services:
   cloudflared:
     image: ${CLOUDFLARED_IMAGE}
     container_name: ${CLOUDFLARED_CONTAINER_NAME}
-    command: sh -c 'cloudflared tunnel --no-autoupdate run --token $$(cat /run/secrets/cloudflared_token | tr -d "\n\r"))'
+    command: tunnel --no-autoupdate --protocol http2 run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARED_TOKEN}
     restart: ${RESTART_POLICY}
     networks:
       - n8n_network
     depends_on:
       - n8n
-    secrets:
-      - cloudflared_token
     profiles:
       - tunnel
 
@@ -42,7 +37,3 @@ volumes:
 networks:
   n8n_network:
     driver: bridge
-
-secrets:
-  cloudflared_token:
-    file: ${CLOUDFLARED_TOKEN_FILE}
